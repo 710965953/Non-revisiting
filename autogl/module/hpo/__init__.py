@@ -29,6 +29,11 @@ from .quasi_advisorchoco import QuasiAdvisorChoco
 from .rand_advisor import RandAdvisor
 from .tpe_advisorhpo import TpeAdvisorHPO
 
+##############################################################################################
+#Add in 2021/1/21
+from .esgd_hpo import ESGDOptimizer
+##############################################################################################
+
 
 def build_hpo_from_name(name: str) -> BaseHPOptimizer:
     """
@@ -63,4 +68,8 @@ __all__ = [
     "RandAdvisor",
     "TpeAdvisorHPO",
     "build_hpo_from_name",
+    ##############################################################################################
+    #Add in 2021/1/21
+    "ESGDOptimizer",
+    ##############################################################################################
 ]

@@ -180,7 +180,9 @@ class GraphClassificationTrainer(BaseTrainer):
 
         if init is True:
             self.initialize()
-
+	
+	
+	
     def initialize(self):
         # """Initialize the auto model in trainer."""
         if self.initialized is True:

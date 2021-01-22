@@ -30,6 +30,7 @@ class BaseHPOptimizer:
             raise WrongDependedParameterError("The depended parameter does not exist.")
 
         for para in config:
+            #config 是一个 list, 里面的每一个para是一个dict
             if para["type"] == "NUMERICAL_LIST" and para.get("cutPara", None):
                 self._depend_map[para["parameterName"]] = para
                 if type(para["cutPara"]) == str:
@@ -56,6 +57,8 @@ class BaseHPOptimizer:
 
     def _decompose_list_fixed_para(self, config):
         config = self._decompose_depend_list_para(config)
+        #就检查一下，没问题原封不动传回来罢了
+        #这里的config 是没有问题的了
         fin = []
         self._list_map = {}
         self._fix_map = {}
