@@ -154,7 +154,7 @@ class ESGDOptimizer(BaseHPOptimizer):
         """=========================遗传算法参数设置========================"""
         NIND = self.pps
         maxormins = np.array([1]) #表示目标函数是最小化
-        selectStyle = 'rws' # 采用轮盘赌选择
+        selectStyle = 'etour' # 采用精英锦标赛
         recStyle = 'xovdp' # 采用两点交叉
         mutStyle = 'mutbin' # 二进制变异算子
         Lind = int(np.sum(FieldD[0, :])) # 计算染色体长度

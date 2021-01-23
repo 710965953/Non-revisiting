@@ -58,14 +58,8 @@ trainer:
     scalingType: LOG
 
 hpo:
-  name: esgd
-  max_gen: 30
-  sgd_steps: 40
-  pps: 20
-  ops: 20
-  elite_num: 10
-  subset_rate: 10
-  need_split_dataset: True
+  name: bayes
+  max_evals: 20
 
 ensemble:
   name: ~
