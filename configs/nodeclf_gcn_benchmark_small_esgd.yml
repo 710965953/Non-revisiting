@@ -60,10 +60,10 @@ trainer:
 hpo:
   name: esgd
   max_gen: 10
-  sgd_steps: 35
-  pps: 20
-  ops: 15
-  elite_num: 5
+  sgd_steps: 40
+  pps: 30
+  ops: 20
+  elite_num: 10
   subset_rate: 10
   need_split_dataset: True
 

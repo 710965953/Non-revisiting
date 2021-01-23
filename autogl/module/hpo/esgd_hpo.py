@@ -50,6 +50,23 @@ class ESGDOptimizer(BaseHPOptimizer):
                 loss = -loss
             return current_trainer, loss
 
+        def decode_Chrom_for_bestind(TheChrom, idx):
+            Phen = ea.bs2ri(TheChrom, FieldD)
+            row, col = Phen.shape
+            hps = {}
+            for j in range(col):
+                hps[self.name_record[j]] = Phen[[idx],[j]]
+            hps.update(self.single_choice_para) #只有一个选项的哈批东西
+            #每一个项都是一组超参数
+            t_ObjV = []
+            for t in hps:
+                if isinstance(hps[t], list):
+                    hps[t] = hps[t][0]
+                elif isinstance(hps[t], np.ndarray):
+                    hps[t] = hps[t].tolist()[0] #转成正常的格式
+            para_for_trainer, para_for_hpo = self._decode_para(hps)
+            b_trainer = trainer.duplicate_from_hyper_parameter(para_for_trainer)
+            return b_trainer, para_for_trainer
         
         def decode_Chrom(TheChrom):
             hpsGroup = []
@@ -147,12 +164,11 @@ class ESGDOptimizer(BaseHPOptimizer):
         var_trace = np.zeros((self.max_gen, Lind)) #染色体记录器，记录历代最优个体的染色体
 
         """=========================开始遗传算法进化========================"""
-        start_time = time.time() # 开始计时
         Chrom = ea.crtpc(Encoding,NIND, FieldD) # 生成种群染色体矩阵
         ObjV = get_ObjV(decode_Chrom(Chrom)) # 先解码，再计算初始种群个体的目标函数值
         best_ind = np.argmin(ObjV) # 计算当代最优个体的序号
         # 开始进化
-        best_trainer, best_gene, best_perf = None, None, None
+        best_gene_idx, best_gene, best_perf = None, None, None
 
         for gen in tqdm(range(self.max_gen)):
             FitnV = ea.ranking(maxormins * ObjV) #根据目标函数大小分配适应度值
@@ -167,23 +183,11 @@ class ESGDOptimizer(BaseHPOptimizer):
             obj_trace[gen,0]=np.sum(ObjV)/ObjV.shape[0]
             #记录当代种群的目标函数均值
             obj_trace[gen,1] = ObjV[best_ind] #记录当代种群最优个体目标函数值
+            # print('In gen {}, best obj = {}'.format(gen, ObjV[best_ind]))
             var_trace[gen,:] = Chrom[best_ind,:] #记录当代种群最优个体的染色体
             if not best_perf or ObjV[best_ind] < best_perf:
                 best_perf = ObjV[best_ind]
-                best_gene = Chrom[best_ind,:]
-        print('Evolution finished')
-        best_Phen = ea.bs2ri(best_gene, FieldD)
-        print(best_Phen)
-        best_hps = {}
-        for i, hp in enumerate(best_Phen):
-            best_hps[self.name_record[i]] = hp
-        best_hps.update(self.single_choice_para)
-        for t in best_hps:
-            if isinstance(best_hps[t], list):
-                best_hps[t] = best_hps[t][0]
-            elif isinstance(best_hps[t], np.ndarray):
-                best_hps[t] = best_hps[t].tolist()[0] #转成正常的格式
-        para_for_trainer, para_for_hpo = self._decode_para(best_hps)
-        best_trainer = trainer.duplicate_from_hyper_parameter(para_for_trainer)
-        print('Best_trainer is set')
+                best_gene_idx = best_ind
+        best_trainer, para_for_trainer = decode_Chrom_for_bestind(Chrom, best_gene_idx)
+        best_trainer.train(dataset)
         return best_trainer, para_for_trainer
