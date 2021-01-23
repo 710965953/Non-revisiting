@@ -16,10 +16,10 @@ class ESGDOptimizer(BaseHPOptimizer):
     # Get essential parameters at initialization
     def __init__(self, *args, **kwargs):
         self.max_gen = kwargs.get("max_gen", 5)
-        self.sgd_steps = kwargs.get("sgd_steps", 10)
-        self.pps = kwargs.get("pps", 40)
-        self.ops = kwargs.get("ops", 30)
-        self.elite_num = kwargs.get("elite_num", 20)
+        self.sgd_steps = kwargs.get("sgd_steps", 40)
+        self.pps = kwargs.get("pps", 30)
+        self.ops = kwargs.get("ops", 20)
+        self.elite_num = kwargs.get("elite_num", 10)
         self.subset_rate = kwargs.get("subset_rate", 10)
         self.need_split_dataset = kwargs.get("need_split_dataset", True)
         self.cata_dict = {}
@@ -170,14 +170,20 @@ class ESGDOptimizer(BaseHPOptimizer):
             var_trace[gen,:] = Chrom[best_ind,:] #记录当代种群最优个体的染色体
             if not best_perf or ObjV[best_ind] < best_perf:
                 best_perf = ObjV[best_ind]
-                best_gene = var_trace[gen,:]
-
+                best_gene = Chrom[best_ind,:]
+        print('Evolution finished')
         best_Phen = ea.bs2ri(best_gene, FieldD)
+        print(best_Phen)
         best_hps = {}
         for i, hp in enumerate(best_Phen):
             best_hps[self.name_record[i]] = hp
-        best_hps.update(self.no_learn_para)
-        best_para = self._decode_para(best_hps)
-        best_trainer = trainer.duplicate_from_hyper_parameter(best_para)
-
-        return best_trainer, best_para
+        best_hps.update(self.single_choice_para)
+        for t in best_hps:
+            if isinstance(best_hps[t], list):
+                best_hps[t] = best_hps[t][0]
+            elif isinstance(best_hps[t], np.ndarray):
+                best_hps[t] = best_hps[t].tolist()[0] #转成正常的格式
+        para_for_trainer, para_for_hpo = self._decode_para(best_hps)
+        best_trainer = trainer.duplicate_from_hyper_parameter(para_for_trainer)
+        print('Best_trainer is set')
+        return best_trainer, para_for_trainer
