@@ -10,16 +10,17 @@ import numpy as np
 
 import logging
 logging.basicConfig(level=logging.INFO)
-
+import warnings
+warnings.filterwarnings('ignore')
 if __name__ == '__main__':
 
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument('--dataset', default='cora', type=str)
-    parser.add_argument('--configs', type=str, default='../configs/nodeclf_gcn_benchmark_small.yml')    #这个里面包含了超参优化的参数
+    parser.add_argument('--configs', type=str, default='../configs/nodeclf_gcn_benchmark_small_esgd.yml')    #这个里面包含了超参优化的参数
     # following arguments will override parameters in the config file
-    parser.add_argument('--hpo', type=str, default='random')    #使用的是随机的超参优化方法
-    parser.add_argument('--max_eval', type=int, default=5)
+#    parser.add_argument('--hpo', type=str, default='random')    #使用的是随机的超参优化方法
+#    parser.add_argument('--max_eval', type=int, default=5)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--device', default=0, type=int)
     args = parser.parse_args()
@@ -38,8 +39,8 @@ if __name__ == '__main__':
     dataset = build_dataset_from_name(args.dataset)
     
     configs = yaml.load(open(args.configs, 'r').read(), Loader=yaml.FullLoader)
-    configs['hpo']['name'] = args.hpo
-    configs['hpo']['max_evals'] = args.max_eval
+    # configs['hpo']['name'] = args.hpo
+    # configs['hpo']['max_evals'] = args.max_eval
     autoClassifier = AutoNodeClassifier.from_config(configs)
 
     # train

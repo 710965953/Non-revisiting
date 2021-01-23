@@ -333,6 +333,10 @@ class AutoGraphClassifier(BaseClassifier):
                     optimized, _ = self.hpo_module.optimize(
                         trainer=model, dataset=dataset, time_limit=time_for_each_model
                     )
+                    #############################################################################
+                    #这个地方还要再训练一次完整的数据集的，因为我里面超参数的训练是用的缩减版本的训练集
+                    optimized.train(dataset, True)
+                    #############################################################################
                 # to save memory, all the trainer derived will be mapped to cpu
                 optimized.to(torch.device("cpu"))
                 name = optimized.get_name_with_hp()

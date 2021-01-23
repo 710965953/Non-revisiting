@@ -664,7 +664,6 @@ class AutoNodeClassifier(BaseClassifier):
         model_list = list(models.keys())
         model_hp_space = [models[m] for m in model_list]
         trainer_space = path_or_dict.pop("trainer", None)
-
         if model_hp_space:
             # parse lambda function
             for space in model_hp_space:
