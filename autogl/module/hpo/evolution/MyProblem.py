@@ -2,6 +2,11 @@
 """MyProblem.py"""
 import numpy as np
 import geatpy as ea
+
+import multiprocessing as mp
+from multiprocessing import Pool as ProcessPool
+from multiprocessing.dummy import Pool as ThreadPool
+
 class MyProblem(ea.Problem): # 继承Problem父类
     def __init__(self, fn, dataset,  _decode_para,
                  name_record, single_choice_para, 
@@ -31,13 +36,14 @@ class MyProblem(ea.Problem): # 继承Problem父类
         ea.Problem.__init__(self, name, M, maxormins, Dim, varTypes, lb,
                             ub, lbin, ubin)
 
+        #试试多线程会不会快很多呢
+        self.pool = ThreadPool(4)
+
+
 
     def aimFunc(self, pop): # 目标函数，pop为传入的种群对象
         hpsGroup = []
-        Phen = pop.Phen # 得到决策变量矩阵
-        # 计算目标函数值，赋值给pop种群对象的ObjV属性
-        # pop.ObjV = 4*x1 + 2*x2 + x3
-        # 采用可行性法则处理约束，生成种群个体违反约束程度矩阵
+        Phen = pop.Phen
         row, col = Phen.shape
         for i in range(row):
             hps = {}
@@ -46,16 +52,27 @@ class MyProblem(ea.Problem): # 继承Problem父类
             hps.update(self.single_choice_para) #只有一个选项的哈批东西
             hpsGroup.append(hps)
         #每一个项都是一组超参数
-        t_ObjV = []
-        for hps in hpsGroup:
-            #这里的每一个hps都是字典，一组超参数
-            for t in hps:
-                if isinstance(hps[t], list):
-                    hps[t] = hps[t][0]
-                elif isinstance(hps[t], np.ndarray):
-                    hps[t] = hps[t].tolist()[0] #转成正常的格式
-            para_for_trainer, para_for_hpo = self._decode_para(hps)
-            _, perf = self.fn(self.dataset, para_for_trainer)
-            t_ObjV.append([perf])
-        pop.ObjV = np.array(t_ObjV)
+        # t_ObjV = []
+        # for hps in hpsGroup:
+        #     #这里的每一个hps都是字典，一组超参数
+        #     for t in hps:
+        #         if isinstance(hps[t], list):
+        #             hps[t] = hps[t][0]
+        #         elif isinstance(hps[t], np.ndarray):
+        #             hps[t] = hps[t].tolist()[0] #转成正常的格式
+        #     para_for_trainer, para_for_hpo = self._decode_para(hps)
+        #     _, perf = self.fn(self.dataset, para_for_trainer)
+        #     t_ObjV.append([perf])
+        # pop.ObjV = np.array(t_ObjV)
         # pop.CV = None
+        pop.ObjV = np.array(list(self.pool.map(self.subaimFunc, hpsGroup)))
+
+    def subaimFunc(self, hps):
+        for t in hps:
+            if isinstance(hps[t], list):
+                hps[t] = hps[t][0]
+            elif isinstance(hps[t], np.ndarray):
+                hps[t] = hps[t].tolist()[0] #转成正常的格式
+        para_for_trainer, para_for_hpo = self._decode_para(hps)
+        _, perf = self.fn(self.dataset, para_for_trainer)
+        return [perf]
