@@ -44,11 +44,12 @@ class ESGDOptimizer(BaseHPOptimizer):
         def fn(dset, para):
             current_trainer = trainer.duplicate_from_hyper_parameter(para)
             current_trainer.train(dset)
-            loss, self.is_higher_better = current_trainer.get_valid_score(dset)
+            acc, self.is_higher_better = current_trainer.get_valid_score(dset)
+            input()
             # For convenience, we change the score which is higher better to negative, then we should only minimize the score.
             if self.is_higher_better:
-                loss = -loss
-            return current_trainer, loss
+                acc = -acc
+            return current_trainer, acc
 
         def decode_Chrom_for_bestind(TheChrom, idx):
             Phen = ea.bs2ri(TheChrom, FieldD)

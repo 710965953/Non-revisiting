@@ -47,7 +47,7 @@ trainer:
 
   - parameterName: lr
     type: DOUBLE
-    maxValue: 0.05
+    maxValue: 0.01
     minValue: 0.005
     scalingType: LOG
   
@@ -59,7 +59,7 @@ trainer:
 
 hpo:
   name: dec2b
-  max_gen: 15
+  max_gen: 20
   sgd_steps: 40
   pps: 20
   ops: 20

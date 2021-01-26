@@ -2,7 +2,6 @@
 """MyProblem.py"""
 import numpy as np
 import geatpy as ea
-
 import multiprocessing as mp
 from multiprocessing import Pool as ProcessPool
 from multiprocessing.dummy import Pool as ThreadPool
@@ -12,8 +11,8 @@ class MyProblem(ea.Problem): # 继承Problem父类
                  name_record, single_choice_para, 
                  Dim, **kwargs):#Dim（决策变量维数）
         name = 'HPO' # 初始化name（函数名称，可以随意设置）
-        M = 1 # 初始化M（目标维数）
-        maxormins = [1] # 初始化目标最小最大化标记列表，1：min；-1：max
+        M = 2 # 初始化M（目标维数）
+        maxormins = [1, 1] # 初始化目标最小最大化标记列表，1：min；-1：max
         # 初始化决策变量类型，0：连续；1：离散
         kwargs = kwargs["kwargs"]
         varTypes = kwargs.get("varTypes", [0] * Dim)
@@ -32,6 +31,7 @@ class MyProblem(ea.Problem): # 继承Problem父类
         self.fn = fn
         self._decode_para = _decode_para
 
+        
         # 调用父类构造方法完成实例化s
         ea.Problem.__init__(self, name, M, maxormins, Dim, varTypes, lb,
                             ub, lbin, ubin)
@@ -51,20 +51,6 @@ class MyProblem(ea.Problem): # 继承Problem父类
                 hps[self.name_record[j]] = Phen[[i],[j]]
             hps.update(self.single_choice_para) #只有一个选项的哈批东西
             hpsGroup.append(hps)
-        #每一个项都是一组超参数
-        # t_ObjV = []
-        # for hps in hpsGroup:
-        #     #这里的每一个hps都是字典，一组超参数
-        #     for t in hps:
-        #         if isinstance(hps[t], list):
-        #             hps[t] = hps[t][0]
-        #         elif isinstance(hps[t], np.ndarray):
-        #             hps[t] = hps[t].tolist()[0] #转成正常的格式
-        #     para_for_trainer, para_for_hpo = self._decode_para(hps)
-        #     _, perf = self.fn(self.dataset, para_for_trainer)
-        #     t_ObjV.append([perf])
-        # pop.ObjV = np.array(t_ObjV)
-        # pop.CV = None
         pop.ObjV = np.array(list(self.pool.map(self.subaimFunc, hpsGroup)))
 
     def subaimFunc(self, hps):
@@ -74,5 +60,5 @@ class MyProblem(ea.Problem): # 继承Problem父类
             elif isinstance(hps[t], np.ndarray):
                 hps[t] = hps[t].tolist()[0] #转成正常的格式
         para_for_trainer, para_for_hpo = self._decode_para(hps)
-        _, perf = self.fn(self.dataset, para_for_trainer)
-        return [perf]
+        _, acc, loss = self.fn(self.dataset, para_for_trainer)
+        return [acc, loss]

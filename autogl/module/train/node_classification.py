@@ -201,7 +201,7 @@ class NodeClassificationTrainer(BaseTrainer):
             self.model.parameters(), lr=self.lr, weight_decay=self.weight_decay
         )
         scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
-        for epoch in range(1, self.max_epoch):
+        for i, epoch in enumerate(range(1, self.max_epoch)):
             self.model.model.train()
             optimizer.zero_grad()
             res = self.model.model.forward(data)
@@ -226,6 +226,7 @@ class NodeClassificationTrainer(BaseTrainer):
                 LOGGER.debug("Early stopping at %d", epoch)
                 self.early_stopping.load_checkpoint(self.model.model)
                 break
+
 
     def predict_only(self, data, test_mask=None):
         """
@@ -273,6 +274,8 @@ class NodeClassificationTrainer(BaseTrainer):
             self.valid_score = self.evaluate(
                 dataset, mask=data.val_mask, feval=self.feval
             )
+
+
 
     def predict(self, dataset, mask=None):
         """

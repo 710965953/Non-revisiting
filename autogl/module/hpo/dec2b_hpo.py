@@ -1,4 +1,5 @@
 import random
+import math
 from autogl.module.hpo.base import BaseHPOptimizer
 from . import register_hpo
 import numpy as np
@@ -21,6 +22,9 @@ class DEC2BOptimizer(BaseHPOptimizer):
         self.cata_dict = {}
         self.single_choice_para = {}
 
+        self.best_perf = float('inf')
+        self.best_trainer = None
+
 
     # The most important thing you should do is completing optimization function
     def optimize(self, trainer, dataset, time_limit=None, memory_limit=None):
@@ -40,11 +44,19 @@ class DEC2BOptimizer(BaseHPOptimizer):
         def fn(dset, para):
             current_trainer = trainer.duplicate_from_hyper_parameter(para)
             current_trainer.train(dset)
-            loss, self.is_higher_better = current_trainer.get_valid_score(dset)
+            metrics, self.is_higher_better = current_trainer.get_valid_score(return_major = False)
             # For convenience, we change the score which is higher better to negative, then we should only minimize the score.
-            if self.is_higher_better:
-                loss = -loss
-            return current_trainer, loss
+            for i, is_higher_better in enumerate(self.is_higher_better):
+                if is_higher_better:
+                    metrics[i] = -metrics[i]
+            acc, loss = metrics[0], metrics[1]
+            if acc < self.best_perf:
+                self.best_perf = acc
+                self.best_trainer = current_trainer
+                
+            # print('Acc: ', acc)
+            # print('Para: ', para)
+            return current_trainer, acc, loss
  
         VarTypes = []   #类型
         codes = [] #决策变量的编码格式，全部使用二进制格雷码
@@ -107,15 +119,15 @@ class DEC2BOptimizer(BaseHPOptimizer):
                                 "ubin": ubin
                             })
         """==============================种群设置==========================="""
-        Encoding = 'RI'
+        Encoding = 'BG'
         NIND = self.pps
         Field = ea.crtfld(Encoding, problem.varTypes, problem.ranges,problem.borders) # 创建区域描述器
         population = ea.Population(Encoding, Field, NIND) #实例化种群对象（此时种群还没被真正初始化，仅仅是生成一个种群对象）
         """===========================算法参数设置=========================="""
-        myAlgorithm = ea.soea_DE_currentToBest_1_bin_templet(problem, population) #实例化一个算法模板对象
+        myAlgorithm = ea.moea_NSGA2_templet(problem, population) #实例化一个算法模板对象
         myAlgorithm.MAXGEN = self.max_gen # 最大进化代数
-        myAlgorithm.mutOper.F = 0.5 # 差分进化中的参数F
-        myAlgorithm.recOper.XOVR = 0.7 # 设置交叉概率
+        myAlgorithm.mutOper.Pm = 0.2
+        myAlgorithm.recOper.XOVR = 0.9 # 设置交叉概率
 
         myAlgorithm.logTras = 1 # 设置每隔多少代记录日志，若设置成0则表示不记录日志
         myAlgorithm.verbose = True # 设置是否打印输出日志信息
@@ -132,9 +144,17 @@ class DEC2BOptimizer(BaseHPOptimizer):
             for i, b_para in enumerate(best_Phen):
                 best_hps[self.name_record[i]] = b_para
             best_hps.update(self.single_choice_para)
+
             para_for_trainer, para_for_hpo = self._decode_para(best_hps)
-            best_trainer = trainer.duplicate_from_hyper_parameter(para_for_trainer)
-            best_trainer.train(dataset)
+            # print(para_for_trainer)
+            # best_trainer = trainer.duplicate_from_hyper_parameter(para_for_trainer)
+            # best_trainer.train(dataset)
+            best_trainer = self.best_trainer
+            metrics, self.is_higher_better = self.best_trainer.get_valid_score(return_major = False)
+            for i, is_higher_better in enumerate(self.is_higher_better):    #复原工作
+                    if is_higher_better:
+                        metrics[i] = -metrics[i]
+            print(best_trainer.get_valid_score())
             return best_trainer, para_for_trainer
         else:
             print('没找到可行解。')
