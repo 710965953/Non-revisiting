@@ -34,6 +34,8 @@ from .tpe_advisorhpo import TpeAdvisorHPO
 from .esgd_hpo import ESGDOptimizer
 #1.23
 from .dec2b_hpo import DEC2BOptimizer
+#1.26
+from .moea_pri_hpo import MoeaPriOptimizer
 ##############################################################################################
 
 
@@ -73,6 +75,7 @@ __all__ = [
     ##############################################################################################
     #Add in 2021/1/21
     "ESGDOptimizer",
-    "DEC2BOptimizer"
+    "DEC2BOptimizer",
+    "MoeaPriOptimizer"
     ##############################################################################################
 ]

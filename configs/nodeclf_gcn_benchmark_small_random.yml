@@ -59,7 +59,7 @@ trainer:
 
 hpo:
   name: tpe
-  max_evals: 100
+  max_evals: 30
 
 ensemble:
   name: ~

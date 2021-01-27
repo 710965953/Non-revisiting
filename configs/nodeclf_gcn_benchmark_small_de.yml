@@ -12,8 +12,8 @@ models:
       type: NUMERICAL_LIST
       numericalType: INTEGER
       length: 1
-      minValue: [16]
-      maxValue: [64]
+      minValue: [32]
+      maxValue: [128]
       cutPara: ["num_layers"]
       cutFunc: "lambda x:x[0] - 1"
       scalingType: LOG
@@ -47,21 +47,21 @@ trainer:
 
   - parameterName: lr
     type: DOUBLE
-    maxValue: 0.01
+    maxValue: 0.05
     minValue: 0.005
     scalingType: LOG
   
   - parameterName: weight_decay
     type: DOUBLE
-    maxValue: 0.001
-    minValue: 0.0001
+    maxValue: 0.0005
+    minValue: 0.00005
     scalingType: LOG
 
 hpo:
-  name: dec2b
+  name: moeapri
   max_gen: 20
   sgd_steps: 40
-  pps: 20
+  pps: 40
   ops: 20
   elite_num: 10
   subset_rate: 10

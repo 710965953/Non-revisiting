@@ -8,8 +8,17 @@ import geatpy as ea
 import time
 from tqdm import tqdm
 from .evolution.MyProblem import MyProblem
-@register_hpo("dec2b")
-class DEC2BOptimizer(BaseHPOptimizer): 
+
+"""加入自带的优化方法作为种群的初始值"""
+from . import TpeAdvisorHPO
+from . import MocmaesAdvisorChoco
+from . import AnnealAdvisorHPO
+from . import RandAdvisor
+from . import HPO_DICT
+
+
+@register_hpo("moeapri")
+class MoeaPriOptimizer(BaseHPOptimizer): 
     # Get essential parameters at initialization
     def __init__(self, *args, **kwargs):
         self.max_gen = kwargs.get("max_gen", 5)
@@ -29,7 +38,7 @@ class DEC2BOptimizer(BaseHPOptimizer):
     # The most important thing you should do is completing optimization function
     def optimize(self, trainer, dataset, time_limit=None, memory_limit=None):
         # 1. Get the search space from trainer.
-        space = trainer.hyper_parameter_space + trainer.model.hyper_parameter_space
+        space = trainer.hyper_parameter_space# + trainer.model.hyper_parameter_space
         # optional: use self._encode_para (in BaseOptimizer) to pretreat the space
         # If you use _encode_para, the NUMERICAL_LIST will be spread to DOUBLE or INTEGER, LOG scaling type will be changed to LINEAR, feasible points in CATEGORICAL will be changed to discrete numbers.
         # You should also use _decode_para to transform the types of parameters back.
@@ -39,6 +48,38 @@ class DEC2BOptimizer(BaseHPOptimizer):
         #     subset_num = int((self.subset_rate / 100.0) * len(dataset))
         #     dataset, _ = random_split(dataset = dataset, lengths = [subset_num, len(dataset) - subset_num])
             #分割完成，现在就是使用数据集的一部分用来给超参数训练，而不是全部都来，太慢了
+        def easy_decode(naiveSpace):
+            res = []
+            for tp in naiveSpace:
+                tv = naiveSpace[tp]
+                # if current_space[tp]["type"] is "double":
+                #     if self._numerical_map[tp]["scalingType"] is "log":
+                #         naiveSpace[tp] = math.log(tv)
+                # elif self._numerical_map[tp]["type"] is "NUMERICAL_LIST":
+                #     if self._numerical_map[tp]["scalingType"] is "log":
+                #         naiveSpace[tp] = np.log(tv)[0]
+                # elif self._numerical_map[tp]["type"] in ["CATEGORICAL", "DISCRETE"]:
+                #     if self._numerical_map[tp]["type"] is "CATEGORICAL":
+                #         naiveSpace[tp] = int(self._category_map[tp].index(tv))
+                #     else:
+                #         naiveSpace[tp] = int(self._discrete_map[tp].index(tv))
+                if tp == "hidden_":
+                    res.append(math.log(tv[0]))
+                elif tp == "max_epoch":
+                    res.append(tv)
+                elif tp == "dropout":
+                    res.append(tv)
+                elif tp == "act":
+                    res.append(int(self._category_map[tp + '_'].index(tv)))
+                elif tp == "early_stopping_round":
+                    res.append(tv)
+                elif tp == "lr":
+                    res.append(math.log(tv))
+                elif tp == "weight_decay":
+                    res.append(math.log(tv))
+                else:
+                    print("WRONG!!", tp)
+            return res
 
          # 2. Define your function to get the performance.
         def fn(dset, para):
@@ -106,10 +147,9 @@ class DEC2BOptimizer(BaseHPOptimizer):
                     lbin.append(1)
                     ubin.append(0)
                     self.name_record.append(para["parameterName"])
-            
-
         
         ea_init()
+        """==============================问题设置==========================="""
         problem = MyProblem(fn = fn, dataset = dataset, _decode_para = self._decode_para,
                             name_record = self.name_record, single_choice_para = self.single_choice_para,
                             Dim = len(self.name_record), kwargs = {
@@ -124,6 +164,7 @@ class DEC2BOptimizer(BaseHPOptimizer):
         NIND = self.pps
         Field = ea.crtfld(Encoding, problem.varTypes, problem.ranges,problem.borders) # 创建区域描述器
         population = ea.Population(Encoding, Field, NIND) #实例化种群对象（此时种群还没被真正初始化，仅仅是生成一个种群对象）
+
         """===========================算法参数设置=========================="""
         myAlgorithm = ea.moea_NSGA2_templet(problem, population) #实例化一个算法模板对象
         myAlgorithm.MAXGEN = self.max_gen # 最大进化代数
@@ -133,9 +174,48 @@ class DEC2BOptimizer(BaseHPOptimizer):
         myAlgorithm.logTras = 1 # 设置每隔多少代记录日志，若设置成0则表示不记录日志
         myAlgorithm.verbose = True # 设置是否打印输出日志信息
         myAlgorithm.drawing = 0 #设置绘图方式（0：不绘图；1：绘制结果图；2：绘制目标空间过程动画；3：绘制决策空间过程动画）
+                
+
+        """==========================先验知识获取========================="""
+        PreHyperOptim_ParaList = [
+            {"name": "tpe", "max_evals": 25},
+            # {"name": "mocmaes", "max_evals": 25},
+            {"name": "anneal", "max_evals": 25},
+            {"name": "random", "max_evals": 25}
+        ]
+        self.priori_para = []
+        for hyperOptimPara in PreHyperOptim_ParaList:
+            temp_hpo_module = HPO_DICT[hyperOptimPara["name"]](**hyperOptimPara)
+            _, best_temp_para = temp_hpo_module.optimize(trainer, dataset, time_limit = 3600)
+            for itemsname in list(best_temp_para.keys()):
+                if itemsname + '_' in self.single_choice_para:    #不参与编码进化
+                    best_temp_para.pop(itemsname)
+            
+            the_para_dict = {}
+            for nameRecord in self.name_record:
+                if nameRecord[-1] is '_':
+                    the_para_dict[nameRecord[:-1]] = best_temp_para[nameRecord[:-1]]
+                elif nameRecord[-2] is '_':
+                    the_para_dict[nameRecord[:-1]] = best_temp_para[nameRecord[:-2]]
+                else:
+                    the_para_dict[nameRecord] = best_temp_para[nameRecord]
+            the_para = easy_decode(the_para_dict)
+            for it in range(5):     #根据先验随机扰动
+                tp = the_para.copy()
+                for i, paraitem in enumerate(tp):
+                    if isinstance(paraitem, float):
+                        tp[i] = random.uniform(paraitem * 0.95, paraitem * 1.05)
+                self.priori_para.append(tp)
+            self.priori_para.append(the_para)    #按照顺序排一下防止错误
+
+
+        prophetPop = ea.Population(Encoding, Field, len(self.priori_para), np.array(self.priori_para))  # 实例化种群对象（设置个体数为1）
+        myAlgorithm.call_aimFunc(prophetPop)  # 计算先知种群的目标函数值
+
+
         """==========================调用算法模板进行种群进化==============="""
         tik = time.perf_counter()
-        [BestIndi, population] = myAlgorithm.run() # 执行算法模板，得到最优个体以及最后一代种群
+        [BestIndi, population] = myAlgorithm.run(prophetPop) # 执行算法模板，得到最优个体以及最后一代种群(加入了先验知识)
         # BestIndi.save() # 把最优个体的信息保存到文件中
         tok = time.perf_counter()
         print("Time Cost:", tok - tik)
@@ -147,7 +227,6 @@ class DEC2BOptimizer(BaseHPOptimizer):
             best_hps.update(self.single_choice_para)
 
             para_for_trainer, para_for_hpo = self._decode_para(best_hps)
-            print(para_for_trainer)
             best_trainer = trainer.duplicate_from_hyper_parameter(para_for_trainer)
             best_trainer.train(dataset)
 

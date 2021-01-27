@@ -18,7 +18,6 @@ from ...module import BaseModel
 from ..utils import Leaderboard, set_seed
 from ...datasets import utils
 from ...utils import get_logger
-
 LOGGER = get_logger("NodeClassifier")
 
 

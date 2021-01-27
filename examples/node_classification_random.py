@@ -53,6 +53,7 @@ if __name__ == '__main__':
     # test
     predict_result = autoClassifier.predict_proba(use_best=True, use_ensemble=False)
     print('test acc: ', Acc.evaluate(predict_result, dataset.data.y[dataset.data.test_mask].numpy()))
+    print(autoClassifier.trained_models[list(autoClassifier.trained_models)[0]].get_hyper_parameter())
 
 
 
