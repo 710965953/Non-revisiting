@@ -7,6 +7,7 @@ import yaml
 import random
 import torch
 import numpy as np
+import os
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +22,7 @@ if __name__ == '__main__':
     # following arguments will override parameters in the config file
 #    parser.add_argument('--hpo', type=str, default='random')    #使用的是随机的超参优化方法
 #    parser.add_argument('--max_eval', type=int, default=5)
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=2021)
     parser.add_argument('--device', default=0, type=int)
     args = parser.parse_args()
     if torch.cuda.is_available():
@@ -31,8 +32,10 @@ if __name__ == '__main__':
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
@@ -45,7 +48,7 @@ if __name__ == '__main__':
 
     # train
     if args.dataset in ['cora', 'citeseer', 'pubmed']:
-        autoClassifier.fit(dataset, time_limit=3600, evaluation_method=["acc", "logloss"])
+        autoClassifier.fit(dataset, time_limit=3600, evaluation_method=["acc", "logloss"], seed = seed)
     else:
         autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc], seed=seed, train_split=20*dataset.num_classes, val_split=30*dataset.num_classes, balanced=False)
     val = autoClassifier.get_model_by_performance(0)[0].get_valid_score()[0]

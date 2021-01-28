@@ -176,12 +176,11 @@ class MoeaPriOptimizer(BaseHPOptimizer):
         myAlgorithm.drawing = 0 #设置绘图方式（0：不绘图；1：绘制结果图；2：绘制目标空间过程动画；3：绘制决策空间过程动画）
                 
 
-        """==========================先验知识获取========================="""
+        """==========================先验种群训练加入========================="""
         PreHyperOptim_ParaList = [
-            {"name": "tpe", "max_evals": 25},
-            # {"name": "mocmaes", "max_evals": 25},
-            {"name": "anneal", "max_evals": 25},
-            {"name": "random", "max_evals": 25}
+            {"name": "tpe", "max_evals": 50},
+            {"name": "anneal", "max_evals": 50},
+            {"name": "random", "max_evals": 50}
         ]
         self.priori_para = []
         for hyperOptimPara in PreHyperOptim_ParaList:

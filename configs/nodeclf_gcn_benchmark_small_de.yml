@@ -53,15 +53,15 @@ trainer:
   
   - parameterName: weight_decay
     type: DOUBLE
-    maxValue: 0.0005
-    minValue: 0.00005
+    maxValue: 0.001
+    minValue: 0.0001
     scalingType: LOG
 
 hpo:
   name: moeapri
-  max_gen: 20
+  max_gen: 5
   sgd_steps: 40
-  pps: 40
+  pps: 35
   ops: 20
   elite_num: 10
   subset_rate: 10
