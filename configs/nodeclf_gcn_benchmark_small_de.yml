@@ -59,9 +59,9 @@ trainer:
 
 hpo:
   name: moeapri
-  max_gen: 5
+  max_gen: 100
   sgd_steps: 40
-  pps: 35
+  pps: 100
   ops: 20
   elite_num: 10
   subset_rate: 10

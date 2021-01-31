@@ -21,7 +21,7 @@ if __name__ == '__main__':
     # following arguments will override parameters in the config file
 #    parser.add_argument('--hpo', type=str, default='random')    #使用的是随机的超参优化方法
 #    parser.add_argument('--max_eval', type=int, default=5)
-    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--seed', type=int, default=2021)
     parser.add_argument('--device', default=0, type=int)
     args = parser.parse_args()
     if torch.cuda.is_available():
@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     # train
     if args.dataset in ['cora', 'citeseer', 'pubmed']:
-        autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc])
+        autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc], seed = seed)
     else:
         autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc], seed=seed, train_split=20*dataset.num_classes, val_split=30*dataset.num_classes, balanced=False)
     val = autoClassifier.get_model_by_performance(0)[0].get_valid_score()[0]

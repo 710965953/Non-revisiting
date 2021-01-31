@@ -12,7 +12,7 @@ class MyProblem(ea.Problem): # 继承Problem父类
                  Dim, **kwargs):#Dim（决策变量维数）
         name = 'HPO' # 初始化name（函数名称，可以随意设置）
         M = 2 # 初始化M（目标维数）
-        maxormins = [1, 1] # 初始化目标最小最大化标记列表，1：min；-1：max
+        maxormins = [1] * M # 初始化目标最小最大化标记列表，1：min；-1：max
         # 初始化决策变量类型，0：连续；1：离散
         kwargs = kwargs["kwargs"]
         varTypes = kwargs.get("varTypes", [0] * Dim)
@@ -40,6 +40,10 @@ class MyProblem(ea.Problem): # 继承Problem父类
         self.pool = ThreadPool(4)
 
 
+    # def calReferObjV(self):
+    #     # x1 = np.array([-1.0])
+    #     # x2 = np.array([0.0])
+    #     return np.hstack([-1.0, 0.0])
 
     def aimFunc(self, pop): # 目标函数，pop为传入的种群对象
         hpsGroup = []

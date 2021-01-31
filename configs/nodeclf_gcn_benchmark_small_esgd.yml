@@ -59,9 +59,9 @@ trainer:
 
 hpo:
   name: esgd
-  max_gen: 30
+  max_gen: 2
   sgd_steps: 40
-  pps: 20
+  pps: 5
   ops: 20
   elite_num: 10
   subset_rate: 10

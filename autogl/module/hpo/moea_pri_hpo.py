@@ -33,6 +33,7 @@ class MoeaPriOptimizer(BaseHPOptimizer):
 
         self.best_perf = float('inf')
         self.best_trainer = None
+        self.bp = None
 
 
     # The most important thing you should do is completing optimization function
@@ -93,8 +94,8 @@ class MoeaPriOptimizer(BaseHPOptimizer):
             acc, loss = metrics[0],  metrics[1]
             if acc < self.best_perf:
                 self.best_perf = acc
+                self.bp = para
                 self.best_trainer = current_trainer
-                
             # print('Acc: ', acc)
             # print('Para: ', para)
             return current_trainer, acc, loss
@@ -178,9 +179,9 @@ class MoeaPriOptimizer(BaseHPOptimizer):
 
         """==========================先验种群训练加入========================="""
         PreHyperOptim_ParaList = [
-            {"name": "tpe", "max_evals": 50},
-            {"name": "anneal", "max_evals": 50},
-            {"name": "random", "max_evals": 50}
+            {"name": "tpe", "max_evals": 10},
+            {"name": "anneal", "max_evals": 10},
+            {"name": "random", "max_evals": 10}
         ]
         self.priori_para = []
         for hyperOptimPara in PreHyperOptim_ParaList:
@@ -207,10 +208,8 @@ class MoeaPriOptimizer(BaseHPOptimizer):
                 self.priori_para.append(tp)
             self.priori_para.append(the_para)    #按照顺序排一下防止错误
 
-
         prophetPop = ea.Population(Encoding, Field, len(self.priori_para), np.array(self.priori_para))  # 实例化种群对象（设置个体数为1）
         myAlgorithm.call_aimFunc(prophetPop)  # 计算先知种群的目标函数值
-
 
         """==========================调用算法模板进行种群进化==============="""
         tik = time.perf_counter()
@@ -219,21 +218,22 @@ class MoeaPriOptimizer(BaseHPOptimizer):
         tok = time.perf_counter()
         print("Time Cost:", tok - tik)
         best_hps = {}
-        if BestIndi.sizes != 0:
-            best_Phen = BestIndi.Phen.tolist()[0]
-            for i, b_para in enumerate(best_Phen):
-                best_hps[self.name_record[i]] = b_para
-            best_hps.update(self.single_choice_para)
+        # if BestIndi.sizes != 0:
+        #     best_Phen = BestIndi.Phen.tolist()[0]
+        #     for i, b_para in enumerate(best_Phen):
+        #         best_hps[self.name_record[i]] = b_para
+        #     best_hps.update(self.single_choice_para)
 
-            para_for_trainer, para_for_hpo = self._decode_para(best_hps)
-            best_trainer = trainer.duplicate_from_hyper_parameter(para_for_trainer)
-            best_trainer.train(dataset)
+        #     para_for_trainer, para_for_hpo = self._decode_para(best_hps)
+        #     best_trainer = trainer.duplicate_from_hyper_parameter(para_for_trainer)
+        #     best_trainer.train(dataset)
 
             # best_trainer = self.best_trainer
             # metrics, self.is_higher_better = self.best_trainer.get_valid_score(return_major = False)
             # for i, is_higher_better in enumerate(self.is_higher_better):    #复原工作
             #         if is_higher_better:
             #             metrics[i] = -metrics[i]
-            return best_trainer, para_for_trainer
-        else:
-            print('没找到可行解。')
+        #     return best_trainer, para_for_trainer
+        # else:
+        #     print('没找到可行解。')
+        return self.best_trainer,self.bp
