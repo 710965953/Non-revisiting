@@ -3,6 +3,8 @@ import math
 from autogl.module.hpo.base import BaseHPOptimizer
 from . import register_hpo
 import numpy as np
+import torch
+import os
 from torch.utils.data import random_split
 import geatpy as ea
 import time
@@ -16,21 +18,28 @@ from . import AnnealAdvisorHPO
 from . import RandAdvisor
 from . import HPO_DICT
 
+def reset_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+
 
 @register_hpo("moeapri")
 class MoeaPriOptimizer(BaseHPOptimizer): 
     # Get essential parameters at initialization
     def __init__(self, *args, **kwargs):
         self.max_gen = kwargs.get("max_gen", 5)
-        self.sgd_steps = kwargs.get("sgd_steps", 40)
         self.pps = kwargs.get("pps", 30)
-        self.ops = kwargs.get("ops", 20)
-        self.elite_num = kwargs.get("elite_num", 10)
         self.subset_rate = kwargs.get("subset_rate", 10)
         self.need_split_dataset = kwargs.get("need_split_dataset", True)
+        self.moea_method = kwargs.get("moea_method", "moea_NSGA2_DE_templet")
+        self.seed = kwargs.get("seed", 2021)
         self.cata_dict = {}
         self.single_choice_para = {}
-
         self.best_perf = float('inf')
         self.best_trainer = None
         self.bp = None
@@ -38,6 +47,20 @@ class MoeaPriOptimizer(BaseHPOptimizer):
 
     # The most important thing you should do is completing optimization function
     def optimize(self, trainer, dataset, time_limit=None, memory_limit=None):
+        MOEA_DICT = {
+            "moea_awGA_templet": ea.moea_awGA_templet,
+            "moea_MOEAD_archive_templet": ea.moea_MOEAD_archive_templet,
+            "moea_MOEAD_templet": ea.moea_MOEAD_templet,
+            "moea_MOEAD_DE_templet": ea.moea_MOEAD_DE_templet,
+            "moea_NSGA2_DE_templet": ea.moea_NSGA2_DE_templet,
+            "moea_NSGA2_archive_templet": ea.moea_NSGA2_archive_templet,
+            "moea_NSGA2_templet": ea.moea_NSGA2_templet,
+            "moea_NSGA3_DE_templet": ea.moea_NSGA3_DE_templet,
+            "moea_NSGA3_templet": ea.moea_NSGA3_templet,
+            "moea_PPS_MOEAD_DE_archive_templet": ea.moea_PPS_MOEAD_DE_archive_templet,
+            "moea_RVEA_templet": ea.moea_RVEA_templet,
+            "moea_RVEA_RES_templet": ea.moea_RVEA_RES_templet
+        }
         # 1. Get the search space from trainer.
         space = trainer.hyper_parameter_space# + trainer.model.hyper_parameter_space
         # optional: use self._encode_para (in BaseOptimizer) to pretreat the space
@@ -82,12 +105,11 @@ class MoeaPriOptimizer(BaseHPOptimizer):
                     print("WRONG!!", tp)
             return res
 
-         # 2. Define your function to get the performance.
         def fn(dset, para):
+            reset_seed(self.seed)       #每次都要重置一次随机数种子
             current_trainer = trainer.duplicate_from_hyper_parameter(para)
             current_trainer.train(dset)
             metrics, self.is_higher_better = current_trainer.get_valid_score(return_major = False)
-            # For convenience, we change the score which is higher better to negative, then we should only minimize the score.
             for i, is_higher_better in enumerate(self.is_higher_better):
                 if is_higher_better:
                     metrics[i] = -metrics[i]
@@ -167,7 +189,7 @@ class MoeaPriOptimizer(BaseHPOptimizer):
         population = ea.Population(Encoding, Field, NIND) #实例化种群对象（此时种群还没被真正初始化，仅仅是生成一个种群对象）
 
         """===========================算法参数设置=========================="""
-        myAlgorithm = ea.moea_NSGA2_templet(problem, population) #实例化一个算法模板对象
+        myAlgorithm = MOEA_DICT[self.moea_method](problem, population) # 实例化一个算法模板对象
         myAlgorithm.MAXGEN = self.max_gen # 最大进化代数
         myAlgorithm.mutOper.Pm = 0.2
         myAlgorithm.recOper.XOVR = 0.9 # 设置交叉概率
@@ -176,12 +198,11 @@ class MoeaPriOptimizer(BaseHPOptimizer):
         myAlgorithm.verbose = True # 设置是否打印输出日志信息
         myAlgorithm.drawing = 0 #设置绘图方式（0：不绘图；1：绘制结果图；2：绘制目标空间过程动画；3：绘制决策空间过程动画）
                 
-
         """==========================先验种群训练加入========================="""
         PreHyperOptim_ParaList = [
-            {"name": "tpe", "max_evals": 10},
-            {"name": "anneal", "max_evals": 10},
-            {"name": "random", "max_evals": 10}
+            {"name": "tpe", "max_evals": 30},
+            {"name": "anneal", "max_evals": 30},
+            {"name": "random", "max_evals": 30}
         ]
         self.priori_para = []
         for hyperOptimPara in PreHyperOptim_ParaList:
