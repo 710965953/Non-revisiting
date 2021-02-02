@@ -48,14 +48,14 @@ class MoeaPriOptimizer(BaseHPOptimizer):
     # The most important thing you should do is completing optimization function
     def optimize(self, trainer, dataset, time_limit=None, memory_limit=None, predict = None):
         MOEA_DICT = {
-            # "moea_MOEAD_archive_templet": ea.moea_MOEAD_archive_templet,
-            # "moea_MOEAD_templet": ea.moea_MOEAD_templet,
-            # "moea_MOEAD_DE_templet": ea.moea_MOEAD_DE_templet,
-            # "moea_NSGA2_DE_templet": ea.moea_NSGA2_DE_templet,
-            # "moea_NSGA2_archive_templet": ea.moea_NSGA2_archive_templet,
-            # "moea_NSGA2_templet": ea.moea_NSGA2_templet,
-            # "moea_NSGA3_DE_templet": ea.moea_NSGA3_DE_templet,
-            # "moea_NSGA3_templet": ea.moea_NSGA3_templet,
+            "moea_MOEAD_archive_templet": ea.moea_MOEAD_archive_templet,
+            "moea_MOEAD_templet": ea.moea_MOEAD_templet,
+            "moea_MOEAD_DE_templet": ea.moea_MOEAD_DE_templet,
+            "moea_NSGA2_DE_templet": ea.moea_NSGA2_DE_templet,
+            "moea_NSGA2_archive_templet": ea.moea_NSGA2_archive_templet,
+            "moea_NSGA2_templet": ea.moea_NSGA2_templet,
+            "moea_NSGA3_DE_templet": ea.moea_NSGA3_DE_templet,
+            "moea_NSGA3_templet": ea.moea_NSGA3_templet,
             "moea_RVEA_templet": ea.moea_RVEA_templet,
             "moea_RVEA_RES_templet": ea.moea_RVEA_RES_templet
         }
