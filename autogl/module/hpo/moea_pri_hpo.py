@@ -10,7 +10,7 @@ import geatpy as ea
 import time
 from tqdm import tqdm
 from .evolution.MyProblem import MyProblem
-
+from ..train.evaluate import Acc
 """加入自带的优化方法作为种群的初始值"""
 from . import TpeAdvisorHPO
 from . import MocmaesAdvisorChoco
@@ -46,18 +46,16 @@ class MoeaPriOptimizer(BaseHPOptimizer):
 
 
     # The most important thing you should do is completing optimization function
-    def optimize(self, trainer, dataset, time_limit=None, memory_limit=None):
+    def optimize(self, trainer, dataset, time_limit=None, memory_limit=None, predict = None):
         MOEA_DICT = {
-            "moea_awGA_templet": ea.moea_awGA_templet,
-            "moea_MOEAD_archive_templet": ea.moea_MOEAD_archive_templet,
-            "moea_MOEAD_templet": ea.moea_MOEAD_templet,
-            "moea_MOEAD_DE_templet": ea.moea_MOEAD_DE_templet,
-            "moea_NSGA2_DE_templet": ea.moea_NSGA2_DE_templet,
-            "moea_NSGA2_archive_templet": ea.moea_NSGA2_archive_templet,
-            "moea_NSGA2_templet": ea.moea_NSGA2_templet,
-            "moea_NSGA3_DE_templet": ea.moea_NSGA3_DE_templet,
-            "moea_NSGA3_templet": ea.moea_NSGA3_templet,
-            "moea_PPS_MOEAD_DE_archive_templet": ea.moea_PPS_MOEAD_DE_archive_templet,
+            # "moea_MOEAD_archive_templet": ea.moea_MOEAD_archive_templet,
+            # "moea_MOEAD_templet": ea.moea_MOEAD_templet,
+            # "moea_MOEAD_DE_templet": ea.moea_MOEAD_DE_templet,
+            # "moea_NSGA2_DE_templet": ea.moea_NSGA2_DE_templet,
+            # "moea_NSGA2_archive_templet": ea.moea_NSGA2_archive_templet,
+            # "moea_NSGA2_templet": ea.moea_NSGA2_templet,
+            # "moea_NSGA3_DE_templet": ea.moea_NSGA3_DE_templet,
+            # "moea_NSGA3_templet": ea.moea_NSGA3_templet,
             "moea_RVEA_templet": ea.moea_RVEA_templet,
             "moea_RVEA_RES_templet": ea.moea_RVEA_RES_templet
         }
@@ -118,8 +116,6 @@ class MoeaPriOptimizer(BaseHPOptimizer):
                 self.best_perf = acc
                 self.bp = para
                 self.best_trainer = current_trainer
-            # print('Acc: ', acc)
-            # print('Para: ', para)
             return current_trainer, acc, loss
  
         VarTypes = []   #类型
@@ -186,23 +182,13 @@ class MoeaPriOptimizer(BaseHPOptimizer):
         Encoding = 'RI'
         NIND = self.pps
         Field = ea.crtfld(Encoding, problem.varTypes, problem.ranges,problem.borders) # 创建区域描述器
-        population = ea.Population(Encoding, Field, NIND) #实例化种群对象（此时种群还没被真正初始化，仅仅是生成一个种群对象）
 
-        """===========================算法参数设置=========================="""
-        myAlgorithm = MOEA_DICT[self.moea_method](problem, population) # 实例化一个算法模板对象
-        myAlgorithm.MAXGEN = self.max_gen # 最大进化代数
-        myAlgorithm.mutOper.Pm = 0.2
-        myAlgorithm.recOper.XOVR = 0.9 # 设置交叉概率
 
-        myAlgorithm.logTras = 1 # 设置每隔多少代记录日志，若设置成0则表示不记录日志
-        myAlgorithm.verbose = True # 设置是否打印输出日志信息
-        myAlgorithm.drawing = 0 #设置绘图方式（0：不绘图；1：绘制结果图；2：绘制目标空间过程动画；3：绘制决策空间过程动画）
-                
         """==========================先验种群训练加入========================="""
         PreHyperOptim_ParaList = [
-            {"name": "tpe", "max_evals": 30},
-            {"name": "anneal", "max_evals": 30},
-            {"name": "random", "max_evals": 30}
+            {"name": "tpe", "max_evals": 50},
+            {"name": "anneal", "max_evals": 50},
+            {"name": "random", "max_evals": 50}
         ]
         self.priori_para = []
         for hyperOptimPara in PreHyperOptim_ParaList:
@@ -229,32 +215,35 @@ class MoeaPriOptimizer(BaseHPOptimizer):
                 self.priori_para.append(tp)
             self.priori_para.append(the_para)    #按照顺序排一下防止错误
 
-        prophetPop = ea.Population(Encoding, Field, len(self.priori_para), np.array(self.priori_para))  # 实例化种群对象（设置个体数为1）
-        myAlgorithm.call_aimFunc(prophetPop)  # 计算先知种群的目标函数值
+        f = open("./MOEAresult_{}.txt".format(time.strftime('%Y%m%d_%H%M')), mode='w')
+        """===========================算法参数设置=========================="""
+        for moeaname in list(MOEA_DICT.keys()):
+            self.best_perf = float('inf')
+            f.write('Method: {}\n'.format(moeaname))
+            print('Method: {}'.format(moeaname))
+            f.write('   Gen: {} , Pop: {}\n'.format(self.max_gen, self.pps))
+            population = ea.Population(Encoding, Field, NIND) #实例化种群对象（此时种群还没被真正初始化，仅仅是生成一个种群对象）
+            myAlgorithm = MOEA_DICT[moeaname](problem, population) # 实例化一个算法模板对象
 
-        """==========================调用算法模板进行种群进化==============="""
-        tik = time.perf_counter()
-        [BestIndi, population] = myAlgorithm.run(prophetPop) # 执行算法模板，得到最优个体以及最后一代种群(加入了先验知识)
-        # BestIndi.save() # 把最优个体的信息保存到文件中
-        tok = time.perf_counter()
-        print("Time Cost:", tok - tik)
-        best_hps = {}
-        # if BestIndi.sizes != 0:
-        #     best_Phen = BestIndi.Phen.tolist()[0]
-        #     for i, b_para in enumerate(best_Phen):
-        #         best_hps[self.name_record[i]] = b_para
-        #     best_hps.update(self.single_choice_para)
+            prophetPop = ea.Population(Encoding, Field, len(self.priori_para), np.array(self.priori_para))  # 实例化种群对象（设置个体数为1）
+            myAlgorithm.call_aimFunc(prophetPop)  # 计算先知种群的目标函数值
 
-        #     para_for_trainer, para_for_hpo = self._decode_para(best_hps)
-        #     best_trainer = trainer.duplicate_from_hyper_parameter(para_for_trainer)
-        #     best_trainer.train(dataset)
+            
+            myAlgorithm.MAXGEN = self.max_gen # 最大进化代数
+            # myAlgorithm.mutOper.Pm = 0.2
+            # myAlgorithm.recOper.XOVR = 0.9 # 设置交叉概率
 
-            # best_trainer = self.best_trainer
-            # metrics, self.is_higher_better = self.best_trainer.get_valid_score(return_major = False)
-            # for i, is_higher_better in enumerate(self.is_higher_better):    #复原工作
-            #         if is_higher_better:
-            #             metrics[i] = -metrics[i]
-        #     return best_trainer, para_for_trainer
-        # else:
-        #     print('没找到可行解。')
+            myAlgorithm.logTras = 1 # 设置每隔多少代记录日志，若设置成0则表示不记录日志
+            myAlgorithm.verbose = True # 设置是否打印输出日志信息
+            myAlgorithm.drawing = 0 #设置绘图方式（0：不绘图；1：绘制结果图；2：绘制目标空间过程动画；3：绘制决策空间过程动画）
+                    
+            """==========================调用算法模板进行种群进化==============="""
+            tik = time.perf_counter()
+            [BestIndi, population] = myAlgorithm.run(prophetPop) # 执行算法模板，得到最优个体以及最后一代种群(加入了先验知识)
+            # BestIndi.save() # 把最优个体的信息保存到文件中
+            tok = time.perf_counter()
+            print("Time Cost:", tok - tik)
+            predict_result = (self.best_trainer.predict_proba(dataset, mask="test").cpu().numpy())
+            f.write("       Val acc: {}, Test acc: {}\n\n".format(-self.best_perf, Acc.evaluate(predict_result, dataset.data.y[dataset.data.test_mask].numpy())))
+        f.close()
         return self.best_trainer,self.bp

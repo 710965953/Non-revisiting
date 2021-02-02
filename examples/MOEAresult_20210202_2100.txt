@@ -1,0 +1,3 @@
+Method: moea_MOEAD_archive_templet   Gen: 2 , Pop: 30       Val acc: 0.81, Test acc: 0.801
+Method: moea_MOEAD_templet   Gen: 2 , Pop: 30       Val acc: 0.804, Test acc: 0.823
+Method: moea_MOEAD_DE_templet   Gen: 2 , Pop: 30

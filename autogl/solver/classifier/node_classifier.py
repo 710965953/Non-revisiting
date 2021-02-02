@@ -20,6 +20,7 @@ from ...datasets import utils
 from ...utils import get_logger
 LOGGER = get_logger("NodeClassifier")
 
+from ...module.hpo import MoeaPriOptimizer
 
 class AutoNodeClassifier(BaseClassifier):
     """
@@ -183,6 +184,7 @@ class AutoNodeClassifier(BaseClassifier):
         balanced=True,
         evaluation_method="infer",
         seed=None,
+        predict = None
     ) -> "AutoNodeClassifier":
         """
         Fit current solver on given dataset.
@@ -314,9 +316,14 @@ class AutoNodeClassifier(BaseClassifier):
                 model.train(self.data, True)
                 optimized = model
             else:
-                optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=self.dataset, time_limit=time_for_each_model
+                if isinstance(self.hpo_module, MoeaPriOptimizer):
+                    optimized, _ = self.hpo_module.optimize(
+                    trainer=model, dataset=self.dataset, time_limit=time_for_each_model, predict = predict
                 )
+                else:
+                    optimized, _ = self.hpo_module.optimize(
+                        trainer=model, dataset=self.dataset, time_limit=time_for_each_model
+                    )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
             name = optimized.get_name_with_hp() + "_idx%d" % (idx)
