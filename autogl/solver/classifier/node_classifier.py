@@ -231,7 +231,6 @@ class AutoNodeClassifier(BaseClassifier):
             A reference of current solver.
         """
         set_seed(seed)
-
         if time_limit < 0:
             time_limit = 3600 * 24
         time_begin = time.time()
@@ -316,14 +315,9 @@ class AutoNodeClassifier(BaseClassifier):
                 model.train(self.data, True)
                 optimized = model
             else:
-                if isinstance(self.hpo_module, MoeaPriOptimizer):
-                    optimized, _ = self.hpo_module.optimize(
-                    trainer=model, dataset=self.dataset, time_limit=time_for_each_model, predict = predict
+                optimized, _ = self.hpo_module.optimize(
+                    trainer=model, dataset=self.dataset, time_limit=time_for_each_model
                 )
-                else:
-                    optimized, _ = self.hpo_module.optimize(
-                        trainer=model, dataset=self.dataset, time_limit=time_for_each_model
-                    )
             # to save memory, all the trainer derived will be mapped to cpu
             optimized.to(torch.device("cpu"))
             name = optimized.get_name_with_hp() + "_idx%d" % (idx)

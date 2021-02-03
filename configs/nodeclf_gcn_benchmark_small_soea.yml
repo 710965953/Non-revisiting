@@ -58,10 +58,10 @@ trainer:
     scalingType: LOG
 
 hpo:
-  name: moeapri
-  max_gen: 100
+  name: soea
+  max_gen: 2
   sgd_steps: 40
-  pps: 100
+  pps: 6
   ops: 20
   elite_num: 10
   subset_rate: 10
