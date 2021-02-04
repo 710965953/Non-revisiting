@@ -1,9 +1,0 @@
-Method: moea_MOEAD_archive_templet   Gen: 2 , Pop: 30       Val acc: 0.804, Test acc: 0.817
-Method: moea_MOEAD_templet   Gen: 2 , Pop: 30       Val acc: 0.814, Test acc: 0.814
-Method: moea_MOEAD_DE_templet   Gen: 2 , Pop: 30       Val acc: 0.808, Test acc: 0.808
-Method: moea_NSGA2_DE_templet   Gen: 2 , Pop: 30       Val acc: 0.814, Test acc: 0.814
-Method: moea_NSGA2_archive_templet   Gen: 2 , Pop: 30       Val acc: 0.806, Test acc: 0.818
-Method: moea_NSGA2_templet   Gen: 2 , Pop: 30       Val acc: 0.81, Test acc: 0.812
-Method: moea_NSGA3_DE_templet   Gen: 2 , Pop: 30       Val acc: 0.81, Test acc: 0.808
-Method: moea_NSGA3_templet   Gen: 2 , Pop: 30       Val acc: 0.808, Test acc: 0.807
-Method: moea_PPS_MOEAD_DE_archive_templet   Gen: 2 , Pop: 30

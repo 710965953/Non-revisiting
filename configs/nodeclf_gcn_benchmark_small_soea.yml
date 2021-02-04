@@ -60,8 +60,8 @@ trainer:
 hpo:
   name: soea
   max_gen: 2
-  sgd_steps: 40
-  pps: 6
+  soea_method: soea_DE_targetToBest_1_L_templet
+  pps: 4
   ops: 20
   elite_num: 10
   subset_rate: 10

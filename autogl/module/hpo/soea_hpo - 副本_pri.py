@@ -12,6 +12,15 @@ import os
 from tqdm import tqdm
 from .evolution.MyProblem import MyProblem_single as MyProblem
 from ..train.evaluate import Acc
+
+"""加入自带的优化方法作为种群的初始值"""
+from . import TpeAdvisorHPO
+from . import MocmaesAdvisorChoco
+from . import AnnealAdvisorHPO
+from . import RandAdvisor
+from . import HPO_DICT
+
+
 def reset_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -20,7 +29,7 @@ def reset_seed(seed):
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 
-MAX_EVAL = 10000
+
 @register_hpo("soea")
 class SOEAOptimizer(BaseHPOptimizer): 
     # Get essential parameters at initialization
@@ -30,7 +39,6 @@ class SOEAOptimizer(BaseHPOptimizer):
         self.subset_rate = kwargs.get("subset_rate", 10)
         self.need_split_dataset = kwargs.get("need_split_dataset", True)
         self.soea_method = kwargs.get("soea_method", None)
-        self.soea_method = "soea_DE_targetToBest_1_L_templet"
         self.seed = kwargs.get("seed", 2021)
         self.cata_dict = {}
         self.single_choice_para = {}
@@ -59,6 +67,38 @@ class SOEAOptimizer(BaseHPOptimizer):
             "soea_SGA_templet": ea.soea_SGA_templet,
             "soea_studGA_templet": ea.soea_studGA_templet,
         }
+        def easy_decode(naiveSpace):
+            res = []
+            for tp in naiveSpace:
+                tv = naiveSpace[tp]
+                # if current_space[tp]["type"] is "double":
+                #     if self._numerical_map[tp]["scalingType"] is "log":
+                #         naiveSpace[tp] = math.log(tv)
+                # elif self._numerical_map[tp]["type"] is "NUMERICAL_LIST":
+                #     if self._numerical_map[tp]["scalingType"] is "log":
+                #         naiveSpace[tp] = np.log(tv)[0]
+                # elif self._numerical_map[tp]["type"] in ["CATEGORICAL", "DISCRETE"]:
+                #     if self._numerical_map[tp]["type"] is "CATEGORICAL":
+                #         naiveSpace[tp] = int(self._category_map[tp].index(tv))
+                #     else:
+                #         naiveSpace[tp] = int(self._discrete_map[tp].index(tv))
+                if tp == "hidden_":
+                    res.append(math.log(tv[0]))
+                elif tp == "max_epoch":
+                    res.append(tv)
+                elif tp == "dropout":
+                    res.append(tv)
+                elif tp == "act":
+                    res.append(int(self._category_map[tp + '_'].index(tv)))
+                elif tp == "early_stopping_round":
+                    res.append(tv)
+                elif tp == "lr":
+                    res.append(math.log(tv))
+                elif tp == "weight_decay":
+                    res.append(math.log(tv))
+                else:
+                    print("WRONG!!", tp)
+            return res
 
         # 1. Get the search space from trainer.
         space = trainer.hyper_parameter_space
@@ -87,7 +127,6 @@ class SOEAOptimizer(BaseHPOptimizer):
                 self.best_perf = acc
                 self.best_trainer = current_trainer
                 self.best_para = para
-            self.barray = np.append(self.barray, -self.best_perf)
             return current_trainer, acc, loss
  
         VarTypes = []   #类型
@@ -153,46 +192,69 @@ class SOEAOptimizer(BaseHPOptimizer):
                             })
         """==============================种群设置==========================="""
         Encoding = 'RI'
-        # NIND = self.pps
+        NIND = self.pps
         Field = ea.crtfld(Encoding, problem.varTypes, problem.ranges,problem.borders) # 创建区域描述器
-        if not os.path.exists("./soea_grid"):
-            os.mkdir("./soea_grid")
-        f = open("./soea_grid/SOEA_grid_{}.txt".format(time.strftime('%Y%m%d_%H%M')), mode='w')
-        methods = list(SOEA_DICT.keys()) if self.soea_method is None else [self.soea_method]
 
-        for soeaname in methods:
-            pms = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
-            xovrs = [0.9, 0.8, 0.7, 0.6, 0.5]
-            ppss = [250, 200, 100, 50]
-            #use grid search for the evolution algorithm
-            for pm in pms:
-                for xovr in xovrs:
-                    for pps in ppss:
-                        NIND = pps
-                        self.barray = np.array([])
-                        reset_seed(self.seed)
-                        self.best_perf = float('inf')
-                        f.write('Hyper para: pm: {}  xovr: {}  pps: {}\n'.format(pm, xovr, pps))
-                        # f.write('   Gen: {} , Pop: {}\n'.format(self.max_gen, self.pps))
-                        population = ea.Population(Encoding, Field, NIND) #实例化种群对象（此时种群还没被真正初始化，仅仅是生成一个种群对象）
-                        """===========================算法参数设置=========================="""
-                        myAlgorithm = SOEA_DICT[soeaname](problem, population) #实例化一个算法模板对象
-                        # myAlgorithm.MAXGEN = self.max_gen # 最大进化代数
-                        myAlgorithm.MAXGEN = MAX_EVAL // pps    #进化代数 = 总评估次数 // 种群个数
-                        myAlgorithm.mutOper.Pm = pm
-                        myAlgorithm.recOper.XOVR = xovr # 设置交叉概率
+        """==========================先验种群训练加入========================="""
+        PreHyperOptim_ParaList = [
+            {"name": "tpe", "max_evals": 50},
+            {"name": "anneal", "max_evals": 50},
+            {"name": "random", "max_evals": 50}
+        ]
+        self.priori_para = []
+        for hyperOptimPara in PreHyperOptim_ParaList:
+            temp_hpo_module = HPO_DICT[hyperOptimPara["name"]](**hyperOptimPara)
+            _, best_temp_para = temp_hpo_module.optimize(trainer, dataset, time_limit = 3600)
+            for itemsname in list(best_temp_para.keys()):
+                if itemsname + '_' in self.single_choice_para:    #不参与编码进化
+                    best_temp_para.pop(itemsname)
+            
+            the_para_dict = {}
+            for nameRecord in self.name_record:
+                if nameRecord[-1] is '_':
+                    the_para_dict[nameRecord[:-1]] = best_temp_para[nameRecord[:-1]]
+                elif nameRecord[-2] is '_':
+                    the_para_dict[nameRecord[:-1]] = best_temp_para[nameRecord[:-2]]
+                else:
+                    the_para_dict[nameRecord] = best_temp_para[nameRecord]
+            the_para = easy_decode(the_para_dict)
+            for it in range(5):     #根据先验随机扰动
+                tp = the_para.copy()
+                for i, paraitem in enumerate(tp):
+                    if isinstance(paraitem, float):
+                        tp[i] = random.uniform(paraitem * 0.95, paraitem * 1.05)
+                self.priori_para.append(tp)
+            self.priori_para.append(the_para)    #按照顺序排一下防止错误
 
-                        myAlgorithm.logTras = 1 # 设置每隔多少代记录日志，若设置成0则表示不记录日志
-                        myAlgorithm.verbose = True # 设置是否打印输出日志信息
-                        myAlgorithm.drawing = 0 #设置绘图方式（0：不绘图；1：绘制结果图；2：绘制目标空间过程动画；3：绘制决策空间过程动画）
-                        """==========================调用算法模板进行种群进化==============="""
-                        [BestIndi, population] = myAlgorithm.run() # 执行算法模板，得到最优个体以及最后一代种群
-                        print(123)
-                        predict_result = (self.best_trainer.predict_proba(dataset, mask="test").cpu().numpy())
-                        f.write("       Val acc: {}, Test acc: {}\n\n".format(-self.best_perf, Acc.evaluate(predict_result, dataset.data.y[dataset.data.test_mask].numpy())))
-                        np.save("pm{}_xovr{}_pps{}".format(pm, xovr, pps), self.barray)
+
+        if not os.path.exists("./soea_pri_result"):
+            os.mkdir("./soea_pri_result")
+        f = open("./soea_pri_result/SOEAresult_{}.txt".format(time.strftime('%Y%m%d_%H%M')), mode='w')
+        for soeaname in list(SOEA_DICT.keys()):
+            reset_seed(self.seed)
+            self.best_perf = float('inf')
+            f.write('Method: {}\n'.format(soeaname))
+            print('Method: {}'.format(soeaname))
+            f.write('   Gen: {} , Pop: {}\n'.format(self.max_gen, self.pps))
+            population = ea.Population(Encoding, Field, NIND) #实例化种群对象（此时种群还没被真正初始化，仅仅是生成一个种群对象）
+            """===========================算法参数设置=========================="""
+            myAlgorithm = SOEA_DICT[soeaname](problem, population) #实例化一个算法模板对象
+            myAlgorithm.MAXGEN = self.max_gen # 最大进化代数
+            # myAlgorithm.mutOper.Pm = 0.2
+            # myAlgorithm.recOper.XOVR = 0.9 # 设置交叉概率
+
+            myAlgorithm.logTras = 1 # 设置每隔多少代记录日志，若设置成0则表示不记录日志
+            myAlgorithm.verbose = True # 设置是否打印输出日志信息
+            myAlgorithm.drawing = 0 #设置绘图方式（0：不绘图；1：绘制结果图；2：绘制目标空间过程动画；3：绘制决策空间过程动画）
+            """==========================调用算法模板进行种群进化==============="""
+            tik = time.perf_counter()
+            [BestIndi, population] = myAlgorithm.run() # 执行算法模板，得到最优个体以及最后一代种群
+            tok = time.perf_counter()
+            print("Time Cost:", tok - tik)
+            predict_result = (self.best_trainer.predict_proba(dataset, mask="test").cpu().numpy())
+            f.write("       Val acc: {}, Test acc: {}\n\n".format(-self.best_perf, Acc.evaluate(predict_result, dataset.data.y[dataset.data.test_mask].numpy())))
         f.close()
         url = "https://sc.ftqq.com/SCU77368T7bdf9479ae8b1f9c61e63aa56f9c481c5fef4809e7d6c.send"
-        urldata = {"text": "soea-grid训练完成，快来康康吧"}
+        urldata = {"text": "Soea with pri训练完成，快来康康吧"}
         requests.post(url, urldata)
         return self.best_trainer, self.best_para

@@ -1,1 +1,0 @@
-Method: moea_awGA_templet   Gen: 2 , Pop: 30

@@ -4,32 +4,63 @@ from autogl.module.hpo.base import BaseHPOptimizer
 from . import register_hpo
 import numpy as np
 from torch.utils.data import random_split
+import torch
 import geatpy as ea
+import requests
 import time
+import os
 from tqdm import tqdm
-from .evolution.MyProblem import MyProblem
-@register_hpo("dec2b")
-class DEC2BOptimizer(BaseHPOptimizer): 
+from .evolution.MyProblem import MyProblem_single as MyProblem
+from ..train.evaluate import Acc
+def reset_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+
+@register_hpo("soea")
+class SOEAOptimizer(BaseHPOptimizer): 
     # Get essential parameters at initialization
     def __init__(self, *args, **kwargs):
         self.max_gen = kwargs.get("max_gen", 5)
-        self.sgd_steps = kwargs.get("sgd_steps", 40)
         self.pps = kwargs.get("pps", 30)
-        self.ops = kwargs.get("ops", 20)
-        self.elite_num = kwargs.get("elite_num", 10)
         self.subset_rate = kwargs.get("subset_rate", 10)
         self.need_split_dataset = kwargs.get("need_split_dataset", True)
+        self.soea_method = kwargs.get("soea_method", None)
+        self.seed = kwargs.get("seed", 2021)
         self.cata_dict = {}
         self.single_choice_para = {}
-
         self.best_perf = float('inf')
         self.best_trainer = None
+        self.bp = None
+        self.best_para = None
 
 
     # The most important thing you should do is completing optimization function
-    def optimize(self, trainer, dataset, time_limit=None, memory_limit=None):
+    def optimize(self, trainer, dataset, time_limit=None, memory_limit=None, seed = 2021):
+        SOEA_DICT = {
+            "soea_DE_best_1_bin_templet": ea.soea_DE_best_1_bin_templet,
+            "soea_DE_best_1_L_templet": ea.soea_DE_best_1_L_templet,
+            "soea_DE_rand_1_bin_templet": ea.soea_DE_rand_1_bin_templet,
+            "soea_DE_rand_1_L_templet": ea.soea_DE_rand_1_L_templet,
+            "soea_DE_targetToBest_1_bin_templet": ea.soea_DE_targetToBest_1_bin_templet,
+            "soea_DE_targetToBest_1_L_templet": ea.soea_DE_targetToBest_1_L_templet,
+            "soea_DE_currentToBest_1_bin_templet": ea.soea_DE_currentToBest_1_bin_templet,
+            "soea_DE_currentToBest_1_L_templet": ea.soea_DE_currentToBest_1_L_templet,
+            "soea_DE_currentToRand_1_templet": ea.soea_DE_currentToRand_1_templet,
+            "soea_ES_1_plus_1_templet": ea.soea_ES_1_plus_1_templet,
+            "soea_ES_miu_plus_lambda_templet": ea.soea_ES_miu_plus_lambda_templet,
+            "soea_EGA_templet": ea.soea_EGA_templet,
+            "soea_SEGA_templet": ea.soea_SEGA_templet,
+            "soea_SGA_templet": ea.soea_SGA_templet,
+            "soea_studGA_templet": ea.soea_studGA_templet,
+        }
+
         # 1. Get the search space from trainer.
-        space = trainer.hyper_parameter_space + trainer.model.hyper_parameter_space
+        space = trainer.hyper_parameter_space
         # optional: use self._encode_para (in BaseOptimizer) to pretreat the space
         # If you use _encode_para, the NUMERICAL_LIST will be spread to DOUBLE or INTEGER, LOG scaling type will be changed to LINEAR, feasible points in CATEGORICAL will be changed to discrete numbers.
         # You should also use _decode_para to transform the types of parameters back.
@@ -42,6 +73,7 @@ class DEC2BOptimizer(BaseHPOptimizer):
 
          # 2. Define your function to get the performance.
         def fn(dset, para):
+            reset_seed(self.seed)
             current_trainer = trainer.duplicate_from_hyper_parameter(para)
             current_trainer.train(dset)
             metrics, self.is_higher_better = current_trainer.get_valid_score(return_major = False)
@@ -53,9 +85,7 @@ class DEC2BOptimizer(BaseHPOptimizer):
             if acc < self.best_perf:
                 self.best_perf = acc
                 self.best_trainer = current_trainer
-                
-            # print('Acc: ', acc)
-            # print('Para: ', para)
+                self.best_para = para
             return current_trainer, acc, loss
  
         VarTypes = []   #类型
@@ -123,39 +153,35 @@ class DEC2BOptimizer(BaseHPOptimizer):
         Encoding = 'RI'
         NIND = self.pps
         Field = ea.crtfld(Encoding, problem.varTypes, problem.ranges,problem.borders) # 创建区域描述器
-        population = ea.Population(Encoding, Field, NIND) #实例化种群对象（此时种群还没被真正初始化，仅仅是生成一个种群对象）
-        """===========================算法参数设置=========================="""
-        myAlgorithm = ea.moea_NSGA2_templet(problem, population) #实例化一个算法模板对象
-        myAlgorithm.MAXGEN = self.max_gen # 最大进化代数
-        myAlgorithm.mutOper.Pm = 0.2
-        myAlgorithm.recOper.XOVR = 0.9 # 设置交叉概率
+        if not os.path.exists("./soea_grid"):
+            os.mkdir("./soea_grid")
+        f = open("./soea_grid/SOEA_grid_{}.txt".format(time.strftime('%Y%m%d_%H%M')), mode='w')
+        methods = list(SOEA_DICT.keys()) if self.soea_method is not None else list(self.soea_method)
+        for soeaname in methods:
+            reset_seed(self.seed)
+            self.best_perf = float('inf')
+            f.write('Method: {}\n'.format(soeaname))
+            print('Method: {}'.format(soeaname))
+            f.write('   Gen: {} , Pop: {}\n'.format(self.max_gen, self.pps))
+            population = ea.Population(Encoding, Field, NIND) #实例化种群对象（此时种群还没被真正初始化，仅仅是生成一个种群对象）
+            """===========================算法参数设置=========================="""
+            myAlgorithm = SOEA_DICT[soeaname](problem, population) #实例化一个算法模板对象
+            myAlgorithm.MAXGEN = self.max_gen # 最大进化代数
+            # myAlgorithm.mutOper.Pm = 0.2
+            # myAlgorithm.recOper.XOVR = 0.9 # 设置交叉概率
 
-        myAlgorithm.logTras = 1 # 设置每隔多少代记录日志，若设置成0则表示不记录日志
-        myAlgorithm.verbose = True # 设置是否打印输出日志信息
-        myAlgorithm.drawing = 0 #设置绘图方式（0：不绘图；1：绘制结果图；2：绘制目标空间过程动画；3：绘制决策空间过程动画）
-        """==========================调用算法模板进行种群进化==============="""
-        tik = time.perf_counter()
-        [BestIndi, population] = myAlgorithm.run() # 执行算法模板，得到最优个体以及最后一代种群
-        # BestIndi.save() # 把最优个体的信息保存到文件中
-        tok = time.perf_counter()
-        print("Time Cost:", tok - tik)
-        best_hps = {}
-        if BestIndi.sizes != 0:
-            best_Phen = BestIndi.Phen.tolist()[0]
-            for i, b_para in enumerate(best_Phen):
-                best_hps[self.name_record[i]] = b_para
-            best_hps.update(self.single_choice_para)
-
-            para_for_trainer, para_for_hpo = self._decode_para(best_hps)
-            print(para_for_trainer)
-            best_trainer = trainer.duplicate_from_hyper_parameter(para_for_trainer)
-            best_trainer.train(dataset)
-
-            # best_trainer = self.best_trainer
-            # metrics, self.is_higher_better = self.best_trainer.get_valid_score(return_major = False)
-            # for i, is_higher_better in enumerate(self.is_higher_better):    #复原工作
-            #         if is_higher_better:
-            #             metrics[i] = -metrics[i]
-            return best_trainer, para_for_trainer
-        else:
-            print('没找到可行解。')
+            myAlgorithm.logTras = 1 # 设置每隔多少代记录日志，若设置成0则表示不记录日志
+            myAlgorithm.verbose = True # 设置是否打印输出日志信息
+            myAlgorithm.drawing = 0 #设置绘图方式（0：不绘图；1：绘制结果图；2：绘制目标空间过程动画；3：绘制决策空间过程动画）
+            """==========================调用算法模板进行种群进化==============="""
+            tik = time.perf_counter()
+            [BestIndi, population] = myAlgorithm.run() # 执行算法模板，得到最优个体以及最后一代种群
+            tok = time.perf_counter()
+            print("Time Cost:", tok - tik)
+            predict_result = (self.best_trainer.predict_proba(dataset, mask="test").cpu().numpy())
+            f.write("       Val acc: {}, Test acc: {}\n\n".format(-self.best_perf, Acc.evaluate(predict_result, dataset.data.y[dataset.data.test_mask].numpy())))
+        f.close()
+        url = "https://sc.ftqq.com/SCU77368T7bdf9479ae8b1f9c61e63aa56f9c481c5fef4809e7d6c.send"
+        urldata = {"text": "soea训练完成，快来康康吧"}
+        requests.post(url, urldata)
+        return self.best_trainer, self.best_para

@@ -6,7 +6,6 @@ import numpy as np
 import torch
 import os
 from torch.utils.data import random_split
-import requests
 import geatpy as ea
 import time
 from tqdm import tqdm
@@ -185,36 +184,36 @@ class MoeaPriOptimizer(BaseHPOptimizer):
         Field = ea.crtfld(Encoding, problem.varTypes, problem.ranges,problem.borders) # 创建区域描述器
 
 
-        # """==========================先验种群训练加入========================="""
-        # PreHyperOptim_ParaList = [
-        #     {"name": "tpe", "max_evals": 50},
-        #     {"name": "anneal", "max_evals": 50},
-        #     {"name": "random", "max_evals": 50}
-        # ]
-        # self.priori_para = []
-        # for hyperOptimPara in PreHyperOptim_ParaList:
-        #     temp_hpo_module = HPO_DICT[hyperOptimPara["name"]](**hyperOptimPara)
-        #     _, best_temp_para = temp_hpo_module.optimize(trainer, dataset, time_limit = 3600)
-        #     for itemsname in list(best_temp_para.keys()):
-        #         if itemsname + '_' in self.single_choice_para:    #不参与编码进化
-        #             best_temp_para.pop(itemsname)
+        """==========================先验种群训练加入========================="""
+        PreHyperOptim_ParaList = [
+            {"name": "tpe", "max_evals": 50},
+            {"name": "anneal", "max_evals": 50},
+            {"name": "random", "max_evals": 50}
+        ]
+        self.priori_para = []
+        for hyperOptimPara in PreHyperOptim_ParaList:
+            temp_hpo_module = HPO_DICT[hyperOptimPara["name"]](**hyperOptimPara)
+            _, best_temp_para = temp_hpo_module.optimize(trainer, dataset, time_limit = 3600)
+            for itemsname in list(best_temp_para.keys()):
+                if itemsname + '_' in self.single_choice_para:    #不参与编码进化
+                    best_temp_para.pop(itemsname)
             
-        #     the_para_dict = {}
-        #     for nameRecord in self.name_record:
-        #         if nameRecord[-1] is '_':
-        #             the_para_dict[nameRecord[:-1]] = best_temp_para[nameRecord[:-1]]
-        #         elif nameRecord[-2] is '_':
-        #             the_para_dict[nameRecord[:-1]] = best_temp_para[nameRecord[:-2]]
-        #         else:
-        #             the_para_dict[nameRecord] = best_temp_para[nameRecord]
-        #     the_para = easy_decode(the_para_dict)
-        #     for it in range(5):     #根据先验随机扰动
-        #         tp = the_para.copy()
-        #         for i, paraitem in enumerate(tp):
-        #             if isinstance(paraitem, float):
-        #                 tp[i] = random.uniform(paraitem * 0.95, paraitem * 1.05)
-        #         self.priori_para.append(tp)
-        #     self.priori_para.append(the_para)    #按照顺序排一下防止错误
+            the_para_dict = {}
+            for nameRecord in self.name_record:
+                if nameRecord[-1] is '_':
+                    the_para_dict[nameRecord[:-1]] = best_temp_para[nameRecord[:-1]]
+                elif nameRecord[-2] is '_':
+                    the_para_dict[nameRecord[:-1]] = best_temp_para[nameRecord[:-2]]
+                else:
+                    the_para_dict[nameRecord] = best_temp_para[nameRecord]
+            the_para = easy_decode(the_para_dict)
+            for it in range(5):     #根据先验随机扰动
+                tp = the_para.copy()
+                for i, paraitem in enumerate(tp):
+                    if isinstance(paraitem, float):
+                        tp[i] = random.uniform(paraitem * 0.95, paraitem * 1.05)
+                self.priori_para.append(tp)
+            self.priori_para.append(the_para)    #按照顺序排一下防止错误
 
         f = open("./MOEAresult_{}.txt".format(time.strftime('%Y%m%d_%H%M')), mode='w')
         """===========================算法参数设置=========================="""
@@ -226,8 +225,8 @@ class MoeaPriOptimizer(BaseHPOptimizer):
             population = ea.Population(Encoding, Field, NIND) #实例化种群对象（此时种群还没被真正初始化，仅仅是生成一个种群对象）
             myAlgorithm = MOEA_DICT[moeaname](problem, population) # 实例化一个算法模板对象
 
-            # prophetPop = ea.Population(Encoding, Field, len(self.priori_para), np.array(self.priori_para))  # 实例化种群对象（设置个体数为1）
-            # myAlgorithm.call_aimFunc(prophetPop)  # 计算先知种群的目标函数值
+            prophetPop = ea.Population(Encoding, Field, len(self.priori_para), np.array(self.priori_para))  # 实例化种群对象（设置个体数为1）
+            myAlgorithm.call_aimFunc(prophetPop)  # 计算先知种群的目标函数值
 
             
             myAlgorithm.MAXGEN = self.max_gen # 最大进化代数
@@ -240,14 +239,11 @@ class MoeaPriOptimizer(BaseHPOptimizer):
                     
             """==========================调用算法模板进行种群进化==============="""
             tik = time.perf_counter()
-            [BestIndi, population] = myAlgorithm.run()#prophetPop) # 执行算法模板，得到最优个体以及最后一代种群(加入了先验知识)
+            [BestIndi, population] = myAlgorithm.run(prophetPop) # 执行算法模板，得到最优个体以及最后一代种群(加入了先验知识)
             # BestIndi.save() # 把最优个体的信息保存到文件中
             tok = time.perf_counter()
             print("Time Cost:", tok - tik)
             predict_result = (self.best_trainer.predict_proba(dataset, mask="test").cpu().numpy())
             f.write("       Val acc: {}, Test acc: {}\n\n".format(-self.best_perf, Acc.evaluate(predict_result, dataset.data.y[dataset.data.test_mask].numpy())))
         f.close()
-        url = "https://sc.ftqq.com/SCU77368T7bdf9479ae8b1f9c61e63aa56f9c481c5fef4809e7d6c.send"
-        urldata = {"text": "Moea without pri训练完成，快来康康吧"}
-        requests.post(url, urldata)
         return self.best_trainer,self.bp

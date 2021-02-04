@@ -1,0 +1,60 @@
+Method: soea_DE_best_1_bin_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.804, Test acc: 0.815
+
+Method: soea_DE_best_1_L_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.806, Test acc: 0.82
+
+Method: soea_DE_rand_1_bin_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.81, Test acc: 0.82
+
+Method: soea_DE_rand_1_L_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.806, Test acc: 0.801
+
+Method: soea_DE_targetToBest_1_bin_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.808, Test acc: 0.811
+
+Method: soea_DE_targetToBest_1_L_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.804, Test acc: 0.809
+
+Method: soea_DE_currentToBest_1_bin_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.808, Test acc: 0.815
+
+Method: soea_DE_currentToBest_1_L_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.808, Test acc: 0.818
+
+Method: soea_DE_currentToRand_1_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.806, Test acc: 0.804
+
+Method: soea_ES_1_plus_1_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.812, Test acc: 0.816
+
+Method: soea_ES_miu_plus_lambda_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.808, Test acc: 0.815
+
+Method: soea_EGA_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.81, Test acc: 0.809
+
+Method: soea_SEGA_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.81, Test acc: 0.804
+
+Method: soea_SGA_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.808, Test acc: 0.821
+
+Method: soea_studGA_templet
+   Gen: 2 , Pop: 20
+       Val acc: 0.804, Test acc: 0.819
+

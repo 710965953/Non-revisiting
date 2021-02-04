@@ -59,7 +59,7 @@ trainer:
 
 hpo:
   name: bayes
-  max_evals: 20
+  max_evals: 500
 
 ensemble:
   name: ~
