@@ -161,9 +161,9 @@ class SOEAOptimizer(BaseHPOptimizer):
         methods = list(SOEA_DICT.keys()) if self.soea_method is None else [self.soea_method]
 
         for soeaname in methods:
-            pms = [0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
-            xovrs = [0.9, 0.8, 0.7, 0.6, 0.5]
-            ppss = [250, 200, 100, 50]
+            pms = [0.1, 0.2, 0.3]
+            xovrs = [0.9, 0.8, 0.7]
+            ppss = [100, 50]
             #use grid search for the evolution algorithm
             for pm in pms:
                 for xovr in xovrs:
