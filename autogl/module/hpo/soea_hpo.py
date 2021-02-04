@@ -190,7 +190,7 @@ class SOEAOptimizer(BaseHPOptimizer):
                         print(123)
                         predict_result = (self.best_trainer.predict_proba(dataset, mask="test").cpu().numpy())
                         f.write("       Val acc: {}, Test acc: {}\n\n".format(-self.best_perf, Acc.evaluate(predict_result, dataset.data.y[dataset.data.test_mask].numpy())))
-                        np.save("pm{}_xovr{}_pps{}".format(pm, xovr, pps), self.barray)
+                        np.save("./soea_grid/pm{}_xovr{}_pps{}".format(pm, xovr, pps), self.barray)
         f.close()
         url = "https://sc.ftqq.com/SCU77368T7bdf9479ae8b1f9c61e63aa56f9c481c5fef4809e7d6c.send"
         urldata = {"text": "soea-grid训练完成，快来康康吧"}
