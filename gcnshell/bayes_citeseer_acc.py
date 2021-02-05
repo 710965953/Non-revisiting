@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     from argparse import ArgumentParser
     parser = ArgumentParser()
-    parser.add_argument('--dataset', default='cora', type=str)
+    parser.add_argument('--dataset', default='citeseer', type=str)
     parser.add_argument('--configs', type=str, default='../configs/nodeclf_gcn_benchmark_small_bayes.yml')    #这个里面包含了超参优化的参数
     # following arguments will override parameters in the config file
 #    parser.add_argument('--hpo', type=str, default='random')    #使用的是随机的超参优化方法

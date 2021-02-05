@@ -3,7 +3,9 @@ HPO Module for tuning hyper parameters
 """
 
 import time
+import os
 import json
+import numpy as np
 import math
 from .suggestion.models import Study
 from .base import BaseHPOptimizer, TimeTooLimitedError
@@ -146,6 +148,9 @@ class AdvisorBaseHPOptimizer(BaseHPOptimizer):
         best_id = None
         best_trainer = None
 
+        self.classname = self.__class__.__name__    #方便定义方法的名字
+        bestarray = np.array([])
+        
         for i in range(self.max_evals):
             if time.time() - start_time > time_limit:
                 self.logger.info("Time out of limit, Epoch: {}".format(str(i)))
@@ -161,18 +166,24 @@ class AdvisorBaseHPOptimizer(BaseHPOptimizer):
             new_trial.parameter_values = json.dumps(trial_para)
             new_trial.status = "Completed"
             new_trial.objective_value = perf
+
             if not best_id or perf < self.trials[best_id].objective_value:
-                best_id = len(self.trials)
+                best_id = len(self.trials)  #更新best
                 best_trainer = current_trainer
             else:
                 del current_trainer
             self.trials.append(new_trial)
+            np.append(bestarray, -self.trials[best_id].objective_value if self.is_higher_better else self.trials[best_id].objective_value)
             self._print_info(decoded_json, perf)
 
         if len(self.trials) == 0:
             raise TimeTooLimitedError(
                 "Given time is too limited to finish one round in HPO."
             )
+        strtime = time.strftime('%Y%m%d_%H%M')
+        if not os.path.exists("./orihpo_{}".format(strtime)):
+            os.mkdir("./orihpo_" + strtime)
+        np.save(r'./orihpo_{}/'.format(strtime) + str(self.classname) + r'.npy', bestarray)
 
         best_perf = self.trials[best_id].objective_value
         decoded_json, _ = self._decode_para(

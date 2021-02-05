@@ -58,8 +58,8 @@ trainer:
     scalingType: LOG
 
 hpo:
-  name: tpe
-  max_evals: 30
+  name: random
+  max_evals: 10000
 
 ensemble:
   name: ~

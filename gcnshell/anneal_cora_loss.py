@@ -2,7 +2,7 @@ import sys
 sys.path.append('../')
 from autogl.datasets import build_dataset_from_name
 from autogl.solver import AutoNodeClassifier
-from autogl.module import Acc
+from autogl.module import Acc,Logloss
 import yaml
 import random
 import torch
@@ -16,7 +16,7 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument('--dataset', default='cora', type=str)
-    parser.add_argument('--configs', type=str, default='../configs/nodeclf_gcn_benchmark_small_bayes.yml')    #这个里面包含了超参优化的参数
+    parser.add_argument('--configs', type=str, default='../configs/nodeclf_gcn_benchmark_small_anneal.yml')    #这个里面包含了超参优化的参数
     # following arguments will override parameters in the config file
 #    parser.add_argument('--hpo', type=str, default='random')    #使用的是随机的超参优化方法
 #    parser.add_argument('--max_eval', type=int, default=5)
@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     # train
     if args.dataset in ['cora', 'citeseer', 'pubmed']:
-        autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc])
+        autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Logloss])
     else:
         autoClassifier.fit(dataset, time_limit=3600, evaluation_method=[Acc], seed=seed, train_split=20*dataset.num_classes, val_split=30*dataset.num_classes, balanced=False)
     val = autoClassifier.get_model_by_performance(0)[0].get_valid_score()[0]
